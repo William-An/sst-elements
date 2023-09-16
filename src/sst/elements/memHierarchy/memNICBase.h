@@ -1,8 +1,8 @@
-// Copyright 2013-2022 NTESS. Under the terms
+// Copyright 2013-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2013-2022, NTESS
+// Copyright (c) 2013-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -55,10 +55,16 @@ class MemNICBase : public MemLinkBase {
 
         // Router events
         class MemRtrEvent : public SST::Event {
-            public:
+            protected:
                 MemEventBase * event;
+            public:
                 MemRtrEvent() : Event(), event(nullptr) { }
                 MemRtrEvent(MemEventBase * ev) : Event(), event(ev) { }
+                ~MemRtrEvent() {
+                    if (event) {
+                        delete event;
+                    }
+                }
 
                 virtual Event* clone(void) override {
                     MemRtrEvent *mre = new MemRtrEvent(*this);
@@ -67,6 +73,20 @@ class MemNICBase : public MemLinkBase {
                     else
                         mre->event = nullptr;
                     return mre;
+                }
+
+                void putEvent(MemEventBase* ev) {
+                    event = ev;
+                }
+
+                MemEventBase* takeEvent() {
+                    MemEventBase* tmp = event;
+                    event = nullptr;
+                    return tmp;
+                }
+
+                MemEventBase* inspectEvent() {
+                    return event;
                 }
 
                 virtual bool hasClientData() const { return true; }
@@ -112,6 +132,13 @@ class MemNICBase : public MemLinkBase {
         };
 
         // Init functions
+        virtual void sendUntimedData(MemEventInit* ev, bool broadcast = true) {
+            DISABLE_WARN_DEPRECATED_DECLARATION
+            sendInitData(ev, broadcast);
+            REENABLE_WARNING
+        }
+
+        [[deprecated("sendInitData() has been deprecated and will be removed in SST 14.  Please use sendUntimedData().")]]
         virtual void sendInitData(MemEventInit * ev, bool broadcast = true) {
             if (!broadcast) {
                 std::string dst = findTargetDestination(ev->getRoutingAddress());
@@ -129,11 +156,19 @@ class MemNICBase : public MemLinkBase {
             initSendQueue.push(req);
         }
 
+        virtual MemEventInit* recvUntimedData() {
+            DISABLE_WARN_DEPRECATED_DECLARATION
+            auto ret = recvInitData();
+            REENABLE_WARNING
+                return ret;
+        }
+    
+        [[deprecated("recvInitData() has been deprecated and will be removed in SST 14.  Please use recvUntimedData().")]]
         virtual MemEventInit* recvInitData() {
             if (initQueue.size()) {
                 MemRtrEvent * mre = initQueue.front();
                 initQueue.pop();
-                MemEventInit * ev = static_cast<MemEventInit*>(mre->event);
+                MemEventInit * ev = static_cast<MemEventInit*>(mre->takeEvent());
                 delete mre;
                 return ev;
             }
@@ -232,7 +267,7 @@ class MemNICBase : public MemLinkBase {
             // After we've set up network and exchanged params, drain the send queue
             if (networkReady && initMsgSent) {
                 while (!initSendQueue.empty()) {
-                    linkcontrol->sendInitData(initSendQueue.front());
+                    linkcontrol->sendUntimedData(initSendQueue.front());
                     initSendQueue.pop();
                 }
 
@@ -244,7 +279,7 @@ class MemNICBase : public MemLinkBase {
                         SST::Interfaces::SimpleNetwork::Request* req = new SST::Interfaces::SimpleNetwork::Request();
                         req->dest = SST::Interfaces::SimpleNetwork::INIT_BROADCAST_ADDR;
                         req->givePayload(mre);
-                        linkcontrol->sendInitData(req);
+                        linkcontrol->sendUntimedData(req);
                         it = initWaitForDst.erase(it);
                     } else {
                         it++;
@@ -261,7 +296,7 @@ class MemNICBase : public MemLinkBase {
                 req->dest = SST::Interfaces::SimpleNetwork::INIT_BROADCAST_ADDR;
                 req->src = info.addr;
                 req->givePayload(ev);
-                linkcontrol->sendInitData(req);
+                linkcontrol->sendUntimedData(req);
                 initMsgSent = true;
             }
 
@@ -270,7 +305,7 @@ class MemNICBase : public MemLinkBase {
             // 2. MemEventBase - only notify parent if sender is a src or dst for us
             // We should know since network is in order and NIC does its init before the
             // parents do
-            while (SST::Interfaces::SimpleNetwork::Request *req = linkcontrol->recvInitData()) {
+            while (SST::Interfaces::SimpleNetwork::Request *req = linkcontrol->recvUntimedData()) {
                 Event * payload = req->takePayload();
                 InitMemRtrEvent * imre = dynamic_cast<InitMemRtrEvent*>(payload);
                 if (imre) {
@@ -280,8 +315,8 @@ class MemNICBase : public MemLinkBase {
                     delete imre;
                 } else {
                     MemRtrEvent * mre = static_cast<MemRtrEvent*>(payload);
-                    MemEventInit *ev = static_cast<MemEventInit*>(mre->event);
-                    dbg.debug(_L10_, "%s (memNICBase) received mre during init. %s\n", getName().c_str(), mre->event->getVerboseString(dlevel).c_str());
+                    MemEventInit *ev = static_cast<MemEventInit*>(mre->takeEvent()); // mre no longer has a copy of its event
+                    dbg.debug(_L10_, "%s (memNICBase) received mre during init. %s\n", getName().c_str(), ev->getVerboseString(dlevel).c_str());
 
                     /*
                      * Event is for us if:
@@ -312,10 +347,12 @@ class MemNICBase : public MemLinkBase {
                                 epInfo.region = it->first;
                                 addEndpoint(epInfo);
                             }
+                            mre->putEvent(ev); // If we did not delete the Event, give it back to the MemRtrEvent
                             initQueue.push(mre); // Our component will forward on all its other ports
                         }
-                    } else if ((ev->getCmd() == Command::NULLCMD && (isSource(mre->event->getSrc()) || isDest(mre->event->getSrc()))) || ev->getDst() == info.name) {
+                    } else if ((ev->getCmd() == Command::NULLCMD && (isSource(ev->getSrc()) || isDest(ev->getSrc()))) || ev->getDst() == info.name) {
                         dbg.debug(_L10_, "\tInserting in initQueue\n");
+                        mre->putEvent(ev); // If we did not delete the Event, give it back to the MemRtrEvent
                         initQueue.push(mre);
                     }
                 }
@@ -427,7 +464,7 @@ class MemNICBase : public MemLinkBase {
             while (!(queue->empty())) {
                 SST::Interfaces::SimpleNetwork::Request* head = queue->front();
 #ifdef __SST_DEBUG_OUTPUT__
-                MemEventBase* ev = (static_cast<MemRtrEvent*>(head->inspectPayload()))->event;
+                MemEventBase* ev = (static_cast<MemRtrEvent*>(head->inspectPayload()))->inspectEvent();
                 std::string debugEvStr = ev ? ev->getBriefString() : "";
                 uint64_t dst = head->dest;
                 bool doDebug = ev ? is_debug_event(ev) : false;

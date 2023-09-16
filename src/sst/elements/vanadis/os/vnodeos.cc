@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -37,7 +37,13 @@ VanadisNodeOSComponent::VanadisNodeOSComponent(SST::ComponentId_t id, SST::Param
 
     const uint32_t verbosity = params.find<uint32_t>("dbgLevel", 0);
     const uint32_t mask = params.find<uint32_t>("dbgMask", 0);
-    output = new SST::Output("[node-os]:@p():@l ", verbosity, mask, SST::Output::STDOUT);
+    auto node = params.find<uint32_t>("nodeId", 0);
+
+    char* outputPrefix = (char*)malloc(sizeof(char) * 256);
+    snprintf(outputPrefix, sizeof(char)*256, "[node%d-os]:@p():@l ", node);
+
+    output = new SST::Output(outputPrefix, verbosity, mask, Output::STDOUT);
+    free(outputPrefix);
 
     const uint32_t core_count = params.find<uint32_t>("cores", 0);
     const uint32_t hardwareThreadCount = params.find<uint32_t>("hardwareThreadCount", 1);
@@ -190,7 +196,7 @@ VanadisNodeOSComponent::init(unsigned int phase) {
 
     // do we need to check for this, really?
     for (Link* next_link : core_links) {
-        while (SST::Event* ev = next_link->recvInitData()) {
+        while (SST::Event* ev = next_link->recvUntimedData()) {
             assert(0);
         }
     }
@@ -281,7 +287,7 @@ VanadisNodeOSComponent::startProcess( OS::HwThreadID& threadID, OS::ProcessInfo*
 
     output->verbose( CALL_INFO, 16, VANADIS_OS_DBG_APP_INIT,
         "stack_pointer=%#" PRIx64 " stack_memory_region_start=%#" PRIx64" stack_region_length=%" PRIu64 "\n",
-        stack_pointer, phdrRegionEnd, stackRegionEnd - phdrRegionEnd);
+        stack_pointer, (uint64_t) phdrRegionEnd, stackRegionEnd - phdrRegionEnd);
 
     process->printRegions("after app runtime setup");
 
@@ -334,10 +340,15 @@ VanadisNodeOSComponent::handleIncomingSyscall(SST::Event* ev) {
                       "a system-call event.\n");
         }
     } else {
-        auto process = m_coreInfoMap.at(sys_ev->getCoreID()).getProcess( sys_ev->getThreadID() );
-        auto syscall = handleIncomingSyscall( process, sys_ev, core_links[ sys_ev->getCoreID() ] );
+	auto process = m_coreInfoMap.at(sys_ev->getCoreID()).getProcess( sys_ev->getThreadID() );
+	if ( process ) {
+		auto syscall = handleIncomingSyscall( process, sys_ev, core_links[ sys_ev->getCoreID() ] );
 
-        processSyscallPost( syscall );
+		processSyscallPost( syscall );
+	} else {
+		printf("no active process for core %d, hwthread %d\n", sys_ev->getCoreID(), sys_ev->getThreadID() );
+		delete ev;
+	}
     } 
 }
 
@@ -534,8 +545,9 @@ void VanadisNodeOSComponent::pageFault( PageFault *info )
             } else if ( region->backing->dev ) {
                 // map this physical page into the MMU for this process 
                 auto physAddr = region->backing->dev->getPhysAddr();
-                auto ppn = physAddr >> m_pageShift;
-                output->verbose(CALL_INFO, 1, VANADIS_OS_DBG_PAGE_FAULT, "Device physAddr=%#lx ppn=%d\n",physAddr,ppn);
+                auto offset = vpn - ( region->addr >> m_pageShift);
+                auto ppn = ( physAddr >> m_pageShift ) + offset;
+                output->verbose(CALL_INFO, 1, VANADIS_OS_DBG_PAGE_FAULT, "Device physAddr=%#" PRIx64 " ppn=%" PRIu64 "\n",physAddr,ppn);
                 m_mmu->map( thread->getpid(), vpn, ppn, m_pageSize, region->perms );
                 pageFaultFini( info );
                 return;

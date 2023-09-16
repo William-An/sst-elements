@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -86,7 +86,7 @@ SimpleNetwork::Request* MemNetBridge::translate(SimpleNetwork::Request *req, uin
 
     SimpleNetwork::nid_t tgt;
     if ( mre->hasClientData() ) {
-        tgt = getAddrFor(outNet, mre->event->getDst());
+        tgt = getAddrFor(outNet, mre->inspectEvent()->getDst());
     } else {
         MemNIC::InitMemRtrEvent *imre = static_cast<MemNIC::InitMemRtrEvent*>(mre);
         imre->info.addr = getAddrForNetwork(fromNet^1);

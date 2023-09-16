@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -16,8 +16,12 @@
 #ifndef _H_VANADIS_RISCV_CPU_OS
 #define _H_VANADIS_RISCV_CPU_OS
 
+#define PRIuXX PRIu64
+#define PRIdXX PRId64
+#define PRIxXX PRIx64
+
 #include "os/callev/voscallall.h"
-#include "os/vcpuos.h"
+#include "os/vcpuos2.h"
 #include "os/voscallev.h"
 #include <functional>
 
@@ -67,6 +71,7 @@
 #define VANADIS_SYSCALL_RISCV64_UNLINKAT 35 
 #define VANADIS_SYSCALL_RISCV64_OPENAT 56
 #define VANADIS_SYSCALL_RISCV64_CLOSE 57
+#define VANADIS_SYSCALL_RISCV64_LSEEK 62
 #define VANADIS_SYSCALL_RISCV64_READ 63
 #define VANADIS_SYSCALL_RISCV64_WRITE 64
 #define VANADIS_SYSCALL_RISCV64_READV 65
@@ -127,6 +132,7 @@ public:
         InstallRISCV64FuncPtr( READLINKAT );
         InstallRISCV64FuncPtr( GETRANDOM );
         InstallRISCV64FuncPtr( FSTATAT );
+        InstallRISCV64FuncPtr( LSEEK );
     }
 
     virtual ~VanadisRISCV64OSHandler2() {}
@@ -155,7 +161,7 @@ public:
         uint64_t buflen = getArgRegister( 1 );
         uint64_t flags  = getArgRegister( 2 );
 
-        output->verbose(CALL_INFO, 8, 0, "getrandom( %#" PRIu64 ", %" PRIu64 ", %#" PRIx64 ")\n", buf, buflen, flags);
+        output->verbose(CALL_INFO, 8, 0, "getrandom( %" PRIu64 ", %" PRIu64 ", %#" PRIx64 ")\n", buf, buflen, flags);
 
         return new VanadisSyscallGetrandomEvent(core_id, hw_thr, VanadisOSBitType::VANADIS_OS_64B, buf, buflen, flags );
     }
@@ -172,7 +178,7 @@ public:
         }
 #endif
 
-        output->verbose(CALL_INFO, 8, 0, "readlinkat( %" PRIu64 ", %#" PRIx64 ", %#" PRIx64 ", %#" PRIu64 ")\n",
+        output->verbose(CALL_INFO, 8, 0, "readlinkat( %" PRIu64 ", %#" PRIx64 ", %#" PRIx64 ", %" PRIu64 ")\n",
                     dirfd, pathname, buf, bufsize);
 
         return new VanadisSyscallReadLinkAtEvent(core_id, hw_thr, VanadisOSBitType::VANADIS_OS_64B, dirfd, pathname, buf, bufsize);
@@ -205,7 +211,7 @@ public:
         uint64_t val3           = getArgRegister(6);
 
         output->verbose(CALL_INFO, 8, 0,
-                            "futex( %#" PRIx64 ", %" PRId32 ", %" PRIu64 ", %#" PRIu64 ", %" PRIu32 " %#" PRIu64 " %" PRIu64 " )\n",
+                            "futex( %#" PRIx64 ", %" PRId32 ", %" PRIu32 ", %" PRIu64 ", %" PRIu64 " %" PRIu64 " %" PRIu64 " )\n",
                             addr, op, val, timeout_addr, val2, addr2, val3);
 
         return new VanadisSyscallFutexEvent(core_id, hw_thr, VanadisOSBitType::VANADIS_OS_64B, addr, op, val, timeout_addr, val2, addr2, val3 );
@@ -215,7 +221,7 @@ public:
         uint64_t  head  = getArgRegister( 0 );
         uint64_t  len   = getArgRegister( 1 );
 
-        output->verbose(CALL_INFO, 8, 0, "set_robust_list(  %#" PRIx64 ", %#" PRIu64" )\n",head,len);
+        output->verbose(CALL_INFO, 8, 0, "set_robust_list(  %#" PRIx64 ", %" PRIu64" )\n",head,len);
 
         return new VanadisSyscallSetRobustListEvent(core_id, hw_thr, VanadisOSBitType::VANADIS_OS_64B, head, len );
     }
@@ -289,10 +295,20 @@ public:
         uint64_t old_limit  = getArgRegister( 3 );
 
         output->verbose(CALL_INFO, 8, 0,
-                            "prlimit( %" PRIu64 ", %" PRIu64 ",  %#" PRIx64 ", %#" PRIx64 ")\n", pid, new_limit, old_limit );
+                            "prlimit( %" PRIu64 ", %" PRIu64 ",  %#" PRIx64 ", %#" PRIx64 ")\n", pid, resource, new_limit, old_limit );
 
         return new VanadisSyscallPrlimitEvent(core_id, hw_thr, VanadisOSBitType::VANADIS_OS_64B, pid, resource, new_limit, old_limit);
     }
+
+    VanadisSyscallEvent* LSEEK( int hw_thr ) {
+        int32_t fd       = getArgRegister(0);
+        uint64_t offset   = getArgRegister(1);
+        int32_t whence   = getArgRegister(2);
+
+        output->verbose(CALL_INFO, 8, 0, "lseek( %" PRIdXX ", %" PRIdXX", %" PRIdXX " )\n", fd, offset, whence);
+        return new VanadisSyscallLseekEvent(core_id, hw_thr, BitType, fd, offset, whence);
+    }
+
 
     void recvSyscallResp( VanadisSyscallResponse* os_resp ) {
         output->verbose(CALL_INFO, 8, 0, "return-code: %" PRId64 " (success: %3s)\n",
@@ -339,7 +355,7 @@ private:
         RISC_CONVERT( TMPFILE );
 #endif
         if ( flags ) {
-            printf("%s() all flags have not been converted %#x\n",__func__,flags);
+            printf("%s() all flags have not been converted %#" PRIx64 "\n",__func__,flags);
             assert( 0 );
         }
 
@@ -355,7 +371,7 @@ class VanadisRISCV64OSHandler :
     public VanadisRISCV64OSHandler2< uint64_t, VanadisOSBitType::VANADIS_OS_64B, RISCV_ARG_REG_ZERO, RISCV_OS_CODE_REG, RISCV_LINK_REG > {
 
 public:
-    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(VanadisRISCV64OSHandler,
+    SST_ELI_REGISTER_SUBCOMPONENT(VanadisRISCV64OSHandler,
                                             "vanadis",
                                             "VanadisRISCV64OSHandler",
                                             SST_ELI_ELEMENT_VERSION(1, 0, 0),

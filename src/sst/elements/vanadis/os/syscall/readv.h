@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -50,12 +50,12 @@ public:
             m_output->verbose(CALL_INFO, 16, 0,"reached EOF %zu\n",m_totalBytes);
         }
 
-        m_currentVecOffset += m_dataBuffer.size();
-
         m_output->verbose(CALL_INFO, 16, 0,"numRead=%zu totalWritten=%zu currentVecOffset=%zu vecLength=%zu\n",
             numRead,m_totalBytes, m_currentVecOffset, m_ioVecTable->getLength(m_currentVec));
 
-        writeMemory( m_ioVecTable->getAddr(m_currentVec), m_dataBuffer ); 
+        writeMemory( m_ioVecTable->getAddr(m_currentVec) +  m_currentVecOffset, m_dataBuffer ); 
+
+        m_currentVecOffset += m_dataBuffer.size();
     }
 
     void ioVecWork() {

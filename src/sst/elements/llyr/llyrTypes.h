@@ -1,13 +1,13 @@
-// Copyright 2013-2022 NTESS. Under the terms
+// Copyright 2013-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2013-2022, NTESS
+// Copyright (c) 2013-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
 // See the file CONTRIBUTORS.TXT in the top level directory
-// the distribution for more information.
+// of the distribution for more information.
 //
 // This file is part of the SST software package. For license
 // information, see the LICENSE file in the top level directory of the
@@ -103,6 +103,7 @@ typedef enum {
     OR_IMM,
     ANY_TEST = 0x40,
     EQ,
+    EQ_IMM,
     NE,
     UGT,
     UGT_IMM,
@@ -113,6 +114,7 @@ typedef enum {
     SGE,
     ULT,
     ULE,
+    ULE_IMM,
     SLT,
     SLT_IMM,
     SLE,
@@ -128,6 +130,7 @@ typedef enum {
     DIVCONST,
     REMCONST,
     INC,
+    INC_RST,
     ACC,
     ANY_FP = 0xC0,
     FADD,
@@ -143,6 +146,13 @@ typedef enum {
     BUFFER,
     REPEATER,
     ROS,
+    RNE,
+    ROZ,
+    ROO,
+    ONEONAND,
+    GATED_ONE,
+    MERGE,
+    FILTER,
     SEL,
     RET,
     OTHER

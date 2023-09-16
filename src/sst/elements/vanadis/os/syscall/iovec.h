@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -70,8 +70,8 @@ public:
     {
 
         m_output->verbose(CALL_INFO, 2, VANADIS_OS_DBG_SYSCALL,
-                            "[syscall-%s] call is writev( %" PRId64 ", 0x%0llx, %" PRId64 " )\n",
-                            getName().c_str(), event->getFileDescriptor(), event->getIOVecAddress(), event->getIOVecCount());
+                            "[syscall-%s] call is %s( %" PRId64 ", 0x%0llx, %" PRId64 " )\n",
+                            getName().c_str(), getName().c_str(), event->getFileDescriptor(), event->getIOVecAddress(), event->getIOVecCount());
 
         m_fd = process->getFileDescriptor( event->getFileDescriptor() );
         if ( -1 == m_fd ) {

@@ -1,13 +1,13 @@
-// Copyright 2013-2022 NTESS. Under the terms
+// Copyright 2013-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2013-2022, NTESS
+// Copyright (c) 2013-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
 // See the file CONTRIBUTORS.TXT in the top level directory
-// the distribution for more information.
+// of the distribution for more information.
 //
 // This file is part of the SST software package. For license
 // information, see the LICENSE file in the top level directory of the
@@ -33,7 +33,7 @@ public:
         LlyrMapper() {}
     ~SimpleMapper() { }
 
-    SST_ELI_REGISTER_MODULE_DERIVED(
+    SST_ELI_REGISTER_MODULE(
         SimpleMapper,
         "llyr",
         "mapper.simple",
@@ -92,7 +92,7 @@ void SimpleMapper::mapGraph(LlyrGraph< opType > hardwareGraph, LlyrGraph< AppNod
         opType tempOp = app_vertex_map_->at(currentAppNode).getValue().optype_;
         if( tempOp == ADDCONST || tempOp == SUBCONST || tempOp == MULCONST || tempOp == DIVCONST || tempOp == REMCONST ) {
             addNode( tempOp, arguments, newNodeNum, graphOut, llyr_config );
-        } else if( tempOp == INC || tempOp == ACC ) {
+        } else if( tempOp == INC || tempOp == INC_RST || tempOp == ACC ) {
             addNode( tempOp, arguments, newNodeNum, graphOut, llyr_config );
         } else if( tempOp == LDADDR || tempOp == STREAM_LD || tempOp == STADDR || tempOp == STREAM_ST ) {
             addNode( tempOp, arguments, newNodeNum, graphOut, llyr_config );

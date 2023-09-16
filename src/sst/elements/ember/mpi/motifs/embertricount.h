@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -19,6 +19,7 @@
 
 #include "mpi/embermpigen.h"
 #include <vector>
+#include <list>
 #include <queue>
 #include <set>
 #include <map>
@@ -29,7 +30,7 @@ namespace Ember {
 class EmberTriCountGenerator : public EmberMessagePassingGenerator {
 
 public:
-  SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(
+  SST_ELI_REGISTER_SUBCOMPONENT(
       EmberTriCountGenerator,
       "ember",
       "TriCountMotif",
@@ -55,6 +56,8 @@ public:
   void wait_for_any();
   void request_edges(uint64_t first_edge, uint64_t last_edge);
   void edges_to_ranks(uint64_t first_edge, uint64_t last_edge, std::map<uint64_t,uint64_t>& rank_to_size);
+  void test_send_requests();
+  void wait_send_requests();
 
 private:
   enum {TASK_REQUEST, TASK_ASSIGN, TASK_NULL, TASKS_COMPLETE, DATA_REQUEST, DATA};
@@ -86,21 +89,29 @@ private:
   std::vector<Hermes::MemAddr> datareq_send_memaddrs_;
   Hermes::MemAddr datareq_recv_memaddr_;
   MessageRequest* all_requests_;
+  MessageRequest* send_request_array_;
   MessageResponse any_response_;
   MessageRequest task_recv_request_;
   MessageRequest datareq_recv_request_;
   std::vector<MessageRequest*> data_recv_requests_;
+  std::vector<MessageRequest*> datareq_send_requests_;
+  std::list<MessageRequest*> send_requests_;
   std::vector<uint64_t> data_recv_requests_sizes_;
   bool task_recv_active_;
   bool datareq_recv_active_;
   bool need_to_wait_;
   bool free_data_requests_;
   bool free_datareq_buffers_;
+  bool test_sends_;
+  bool do_constant_degree_;
+  int send_request_flag_;
   int request_index_;
+  int send_request_index_;
   uint64_t task_index_;
   uint64_t datareq_index_;
   uint64_t num_data_ranks_;
   uint64_t num_data_received_;
+  uint64_t constant_degree_;
   std::set<uint64_t> data_recvs_complete_;
   std::map<uint64_t, uint64_t> datareq_index_map_;
 };

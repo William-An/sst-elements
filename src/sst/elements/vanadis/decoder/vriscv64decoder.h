@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -44,7 +44,7 @@ namespace Vanadis {
 class VanadisRISCV64Decoder : public VanadisDecoder
 {
 public:
-    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(
+    SST_ELI_REGISTER_SUBCOMPONENT(
       VanadisRISCV64Decoder, "vanadis", "VanadisRISCV64Decoder",
       SST_ELI_ELEMENT_VERSION(1, 0, 0),
       "Implements a RISCV64-compatible decoder for Vanadis CPU processing.",
@@ -826,7 +826,7 @@ protected:
 		int32_t uimm32 = 0;
                 processU<int32_t>(ins, op_code, rd, uimm32);;
 
-		output->verbose(CALL_INFO, 16, 0, "----> LUI %" PRIu16 " <- 0x%lx\n", rd, uimm32);
+		output->verbose(CALL_INFO, 16, 0, "----> LUI %" PRIu16 " <- %#" PRIx32 "\n", rd, uimm32);
 
                 bundle->addInstruction(new VanadisSetRegisterInstruction<int32_t>(
                     ins_address, hw_thr, options, rd, uimm32));
@@ -873,7 +873,7 @@ protected:
                         // RS2 acts as an immediate
                         // SLLIW (32bit result generated)
                         output->verbose(
-                            CALL_INFO, 16, 0, "-------> SLLIW %" PRIu16 " <- %" PRIu16 " << %" PRIu16 " (0x%lx)\n", rd,
+                            CALL_INFO, 16, 0, "-------> SLLIW %" PRIu16 " <- %" PRIu16 " << %" PRIu16 " (%#" PRIx16 ")\n", rd,
                             rs1, rs2, rs2);
                         bundle->addInstruction(
                             new VanadisShiftLeftLogicalImmInstruction<uint32_t>(
@@ -890,7 +890,7 @@ protected:
                         // RS2 acts as an immediate
                         // SRLIW (32bit result generated)
                         output->verbose(
-                            CALL_INFO, 16, 0, "-------> SRLIW %" PRIu16 " <- %" PRIu16 " << %" PRIu16 " (0x%lx)\n", rd,
+                            CALL_INFO, 16, 0, "-------> SRLIW %" PRIu16 " <- %" PRIu16 " << %" PRIu16 " (%#" PRIx16 ")\n", rd,
                             rs1, rs2, rs2);
                         bundle->addInstruction(
                             new VanadisShiftRightLogicalImmInstruction<VanadisRegisterFormat::VANADIS_FORMAT_INT32>(
@@ -903,7 +903,7 @@ protected:
                         // RS2 acts as an immediate
                         // SRAIW
                         output->verbose(
-                            CALL_INFO, 16, 0, "-------> SRAIW %" PRIu16 " <- %" PRIu16 " << %" PRIu16 " (0xlx)\n", rd,
+                            CALL_INFO, 16, 0, "-------> SRAIW %" PRIu16 " <- %" PRIu16 " << %" PRIu16 " (%#" PRIx16 ")\n", rd,
                             rs1, rs2, rs2);
                         bundle->addInstruction(
                             new VanadisShiftRightArithmeticImmInstruction<VanadisRegisterFormat::VANADIS_FORMAT_INT32>(
@@ -1624,6 +1624,23 @@ protected:
                         ins_address, hw_thr, options, fpflags, rd, rs1, rs2));
                     decode_fault = false;
                 } break;
+				    case 32:
+                    {
+                      processR(ins, op_code, rd, rs1, rs2, func_code3, func_code7);
+
+                      output->verbose( CALL_INFO, 16, 0, "---> func_code3=%" PRIu32 " / func_code7=%" PRIu32 "\n", func_code3, func_code7);
+
+                      switch ( rs2 ) {
+                        case 1:
+                        {
+                            // double to float 
+                            output->verbose(CALL_INFO, 16, 0, "-----> FCVT.S.D %" PRIu16 " <- %" PRIu16 "\n", rs1, rd);
+                            bundle->addInstruction(
+                                new VanadisFPConvertInstruction<double,float>(ins_address, hw_thr, options, fpflags, rd, rs1));
+                            decode_fault = false;
+                        } break;
+                      }
+                    } break;
 					 case 33:
 					 {
                     processR(ins, op_code, rd, rs1, rs2, func_code3, func_code7);
@@ -1641,14 +1658,6 @@ protected:
                         output->verbose(CALL_INFO, 16, 0, "-----> FCVT.D.S %" PRIu16 " <- %" PRIu16 "\n", rs1, rd);
                         bundle->addInstruction(
                             new VanadisFPConvertInstruction<float, double>(ins_address, hw_thr, options, fpflags, rd, rs1));
-                        decode_fault = false;
-                    } break;
-                    case 1:
-                    {
-                        // double to float
-                        output->verbose(CALL_INFO, 16, 0, "-----> FCVT.S.D %" PRIu16 " <- %" PRIu16 "\n", rs1, rd);
-                        bundle->addInstruction(
-                            new VanadisFPConvertInstruction<double, float>(ins_address, hw_thr, options, fpflags, rd, rs1));
                         decode_fault = false;
                     } break;
                     }
@@ -1678,6 +1687,33 @@ protected:
                         output->verbose(CALL_INFO, 16, 0, "-----> FCVT.S.WU %" PRIu16 " <- %" PRIu16 "\n", rs1, rd);
                         bundle->addInstruction(
                             new VanadisGPR2FPInstruction<uint32_t, float>(ins_address, hw_thr, options, fpflags, rd, rs1));
+                        decode_fault = false;
+                    } break;
+                    case 3:
+                    {
+                        // uint64 to float
+                        output->verbose(CALL_INFO, 16, 0, "-----> FCVT.S.LU %" PRIu16 " <- %" PRIu16 "\n", rs1, rd);
+                        bundle->addInstruction(
+                            new VanadisGPR2FPInstruction<uint64_t, float>(ins_address, hw_thr, options, fpflags, rd, rs1));
+                        decode_fault = false;
+                    } break;
+                    }
+                } break;
+                case 96:
+                {
+                    processR(ins, op_code, rd, rs1, rs2, func_code3, func_code7);
+                    output->verbose(
+                        CALL_INFO, 16, 0, "---> func_code3=%" PRIu32 " / func_code7=%" PRIu32 "\n", func_code3,
+                        func_code7);
+
+                    // rs2 dictates the signed nature of the operands
+                    switch ( rs2 ) {
+                    case 0:
+                    {
+                        // float to int32
+                        output->verbose(CALL_INFO, 16, 0, "-----> FCVT.W.S %" PRIu16 " <- %" PRIu16 "\n", rs1, rd);
+                        bundle->addInstruction(
+                            new VanadisFP2GPRInstruction<float, int32_t>(ins_address, hw_thr, options, fpflags, rd, rs1));
                         decode_fault = false;
                     } break;
                     }
@@ -1833,6 +1869,15 @@ protected:
                         output->verbose(
                             CALL_INFO, 16, 0, "-----> FLT.S %" PRIu16 " <- %" PRIu16 " <= %" PRIu16 "\n", rd, rs1, rs2);
                         bundle->addInstruction(new VanadisFPSetRegCompareInstruction<REG_COMPARE_LT, float>(
+                            ins_address, hw_thr, options, fpflags, rd, rs1, rs2));
+                        decode_fault = false;
+                    } break;
+                    case 0x2:
+                    {
+                        // FEQ.S
+                        output->verbose(
+                            CALL_INFO, 16, 0, "-----> FEQ.S %" PRIu16 " <- %" PRIu16 " < %" PRIu16 "\n", rd, rs1, rs2);
+                        bundle->addInstruction(new VanadisFPSetRegCompareInstruction<REG_COMPARE_EQ, float>(
                             ins_address, hw_thr, options, fpflags, rd, rs1, rs2));
                         decode_fault = false;
                     } break;
@@ -2223,7 +2268,7 @@ protected:
 
                         output->verbose(
                             CALL_INFO, 16, 0,
-                            "-----> RVC load imediate (LUI) reg: %" PRIu16 ", imm=%" PRId32 " (0x%lx)\n", rd, imm,
+                            "-----> RVC load imediate (LUI) reg: %" PRIu16 ", imm=%" PRId32 " (%#" PRIx32 ")\n", rd, imm,
                             imm);
 
                         bundle->addInstruction(
@@ -2587,7 +2632,7 @@ protected:
                         int64_t offset = offset_43 | offset_5 | offset_86;
 
                         output->verbose(
-                            CALL_INFO, 16, 0, "-----> RVC LDSP rd=%" PRIu16 " <- %" PRIu16 " + %" PRId64 "\n", rvc_rd,
+                            CALL_INFO, 16, 0, "-----> RVC LDSP rd=%" PRIu16 " <- %d + %" PRId64 "\n", rvc_rd,
                             2, offset);
 
                         bundle->addInstruction(new VanadisLoadInstruction(
@@ -2611,7 +2656,7 @@ protected:
                         if ( c_func_12_rs2 == 0 ) {
                             // JR unless rs1 = 0
                             output->verbose(
-                                CALL_INFO, 16, 0, "--------> (generates) RVC JR %" PRIu16 "\n", c_func_12_rs1);
+                                CALL_INFO, 16, 0, "--------> (generates) RVC JR %" PRIu32 "\n", c_func_12_rs1);
                             bundle->addInstruction(new VanadisJumpRegInstruction(
                                 ins_address, hw_thr, options, 2, c_func_12_rs1, VANADIS_NO_DELAY_SLOT));
                             decode_fault = false;
@@ -2622,7 +2667,7 @@ protected:
                             }
                             else {
                                 output->verbose(
-                                    CALL_INFO, 16, 0, "--------> (generates) RVC MV %" PRIu16 " <- %" PRIu16 "\n",
+                                    CALL_INFO, 16, 0, "--------> (generates) RVC MV %" PRIu32 " <- %" PRIu32 "\n",
                                     c_func_12_rs1, c_func_12_rs2);
 
                                 bundle->addInstruction(
@@ -2668,7 +2713,7 @@ protected:
                                 // ADD
                                 output->verbose(
                                     CALL_INFO, 16, 0,
-                                    "--------> (generates) RVC ADD %" PRIu16 " <- %" PRIu16 " + %" PRIu16 "\n",
+                                    "--------> (generates) RVC ADD %" PRIu32 " <- %" PRIu32 " + %" PRIu32 "\n",
                                     c_func_12_rs1, c_func_12_rs1, c_func_12_rs2);
 
                                 bundle->addInstruction(
@@ -2708,7 +2753,7 @@ protected:
                     uint32_t offset = offset_76 | offset_52;
 
                     output->verbose(
-                        CALL_INFO, 16, 0, "-----> RVC SWSP %" PRIu16 " -> %" PRIu16 " + %" PRIu64 "\n", rvc_src, (uint16_t)2,
+                        CALL_INFO, 16, 0, "-----> RVC SWSP %" PRIu16 " -> %" PRIu16 " + %" PRIu32 "\n", rvc_src, (uint16_t)2,
                         offset);
 
                     bundle->addInstruction(new VanadisStoreInstruction(
@@ -2727,7 +2772,7 @@ protected:
                     uint32_t offset = offset_86 | offset_53;
 
                     output->verbose(
-                        CALL_INFO, 16, 0, "-----> RVC SDSP %" PRIu16 " -> %" PRIu16 " + %" PRIu64 "\n", rvc_src, (uint16_t)2,
+                        CALL_INFO, 16, 0, "-----> RVC SDSP %" PRIu16 " -> %" PRIu16 " + %" PRIu32 "\n", rvc_src, (uint16_t)2,
                         offset);
 
                     bundle->addInstruction(new VanadisStoreInstruction(

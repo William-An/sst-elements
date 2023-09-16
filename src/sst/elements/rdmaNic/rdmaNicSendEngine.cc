@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -94,6 +94,7 @@ RdmaNic::SendStream::~SendStream() {
 
 	if ( -1 != m_sendEntry->getCqId() ) {
     	RdmaCompletion comp;
+        bzero(&comp, sizeof(comp));
     	comp.context = m_sendEntry->getContext();
     	m_nic.writeCompletionToHost( m_sendEntry->getThread(), m_sendEntry->getCqId(), comp );
 	}

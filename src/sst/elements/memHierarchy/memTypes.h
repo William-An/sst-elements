@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -48,8 +48,9 @@ enum class MemEventType { Cache, Move, Custom };                    // For parsi
     /* Requests */ \
     X(GetS,             GetSResp,       Request,    Request,        1, 0,   Cache)   /* Read:  Request to get cache line in S state */\
     X(GetX,             GetXResp,       Request,    Request,        1, 0,   Cache)   /* Write: Request to get cache line in M state */\
-    X(GetSX,            GetSResp,       Request,    Request,        1, 0,   Cache)   /* Read:  Request to get cache line in M state with a LOCK flag. Invalidates will block until LOCK flag is lifted */\
-                                                                        /*        GetSX sets the LOCK, GetX removes the LOCK  */\
+    X(GetSX,            GetXResp,       Request,    Request,        1, 0,   Cache)   /* Read:  Request to get cache line in exclusive (E or M) state.*/\
+                                                                        /*        Flag = F_LOCKED: GetSX sets the LOCK, GetX removes the LOCK  */\
+                                                                        /*        Flag = F_LLSC: GetSX sets the load-link state, GetX becomes a conditonal write */\
     X(Write,            WriteResp,      Request,    Request,        1, 0,   Cache)   /* Write: Request to write a cache line (does not return the line) */\
     X(FlushLine,        FlushLineResp,  Request,    Request,        1, 0,   Cache)   /* Request to flush a cache line */\
     X(FlushLineInv,     FlushLineResp,  Request,    Request,        1, 0,   Cache)   /* Request to flush and invalidate a cache line */\

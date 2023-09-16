@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -39,16 +39,23 @@ SimpleMMU::SimpleMMU(SST::ComponentId_t id, SST::Params& params) : MMU(id,params
 
 void SimpleMMU::handleNicTlbEvent( Event* ev ) 
 {
+    if( dynamic_cast<TlbFlushRespEvent*>(ev) ) {
+        // we currently don't do anything with the response because there are no race conditions?
+        delete ev;
+        return;
+    }
+
     auto req = dynamic_cast<TlbMissEvent*>(ev);
+    assert(req);
     auto link = -1;
     auto core = 0;
     auto hwThread = 0;
     unsigned pid = getPid( 0, 0 );
 
-    m_dbg.debug(CALL_INFO_LONG,1,0,"event on link=%d name=%s core=%d pid=%d vpn=%d perms=%#x\n",
+    m_dbg.debug(CALL_INFO_LONG,1,0,"event on link=%d name=%s core=%d pid=%d vpn=%zu perms=%#x\n",
         link,"nicTlb",core,pid,req->getVPN(),req->getPerms());
 
-    m_dbg.debug(CALL_INFO_LONG,1,0,"reqId=%d hwTHread=%d vpn=%zu %#" PRIx64 "\n", req->getReqId(), req->getHardwareThread(), req->getVPN(), req->getVPN() << 12  );
+    m_dbg.debug(CALL_INFO_LONG,1,0,"reqId=%" PRIu64 " hwTHread=%d vpn=%zu %#" PRIx64 "\n", req->getReqId(), req->getHardwareThread(), req->getVPN(), (uint64_t) req->getVPN() << 12  );
     m_permissionsCallback( req->getReqId(), link, core, hwThread, pid, req->getVPN(), req->getPerms(), req->getInstPtr(), req->getMemAddr() );
     delete ev;
 }
@@ -70,10 +77,10 @@ void SimpleMMU::handleTlbEvent( Event* ev, int link )
 
     unsigned pid = getPid( core, hwThread );
 
-    m_dbg.debug(CALL_INFO_LONG,1,0,"event on link=%d name=%s core=%d hwThread=%d pid=%d vpn=%d perms=%#x\n",
+    m_dbg.debug(CALL_INFO_LONG,1,0,"event on link=%d name=%s core=%d hwThread=%d pid=%d vpn=%zu perms=%#x\n",
         link,getTlbName(link).c_str(),core,hwThread,pid,req->getVPN(),req->getPerms());
     
-    m_dbg.debug(CALL_INFO_LONG,1,0,"reqId=%d hwTHread=%d vpn=%zu %#" PRIx64 "\n", req->getReqId(), req->getHardwareThread(), req->getVPN(), req->getVPN() << 12  );
+    m_dbg.debug(CALL_INFO_LONG,1,0,"reqId=%" PRIu64 " hwTHread=%d vpn=%zu %#" PRIx64 "\n", req->getReqId(), req->getHardwareThread(), req->getVPN(), (uint64_t) req->getVPN() << 12  );
     m_permissionsCallback( req->getReqId(), link, core, hwThread, pid, req->getVPN(), req->getPerms(), req->getInstPtr(), req->getMemAddr() );
     delete ev;
 }
@@ -125,6 +132,9 @@ void SimpleMMU::flushTlb( unsigned core, unsigned hwThread ) {
     m_dbg.debug(CALL_INFO_LONG,1,0,"core=%d hwThread=%d\n",core,hwThread);
 //    sendEvent( getLink(core,"itlb"), new TlbFlushEvent( hwThread ) );
     sendEvent( getLink(core,"dtlb"), new TlbFlushReqEvent( hwThread ) );
+    if ( m_nicTlbLink ) {
+        m_nicTlbLink->send(0,new TlbFlushReqEvent( hwThread ) );
+    }
 } 
 
 void SimpleMMU::faultHandled( RequestID requestId, unsigned link, unsigned pid, unsigned vpn, bool success ) {
@@ -132,7 +142,8 @@ void SimpleMMU::faultHandled( RequestID requestId, unsigned link, unsigned pid, 
     if ( success ) {
         auto pageTable = getPageTable(pid);
         assert( pageTable );
-        m_dbg.debug(CALL_INFO_LONG,1,0,"link=%d vpn=%#x virtAddr=%#lx ppn=%#x\n",link, vpn, vpn<<12, pageTable->find( vpn )->ppn );
+        m_dbg.debug(CALL_INFO_LONG,1,0,"link=%d vpn=%#x virtAddr=%#" PRIx64 " ppn=%#x\n",
+            link, vpn, (uint64_t) vpn<<12, pageTable->find( vpn )->ppn );
         sendEvent( link, new TlbFillEvent( requestId, *pageTable->find( vpn ) ) );
     } else {
         m_dbg.debug(CALL_INFO_LONG,1,0,"link=%d vpn=%#x failed\n",link,vpn);

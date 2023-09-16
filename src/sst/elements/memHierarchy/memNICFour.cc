@@ -1,8 +1,8 @@
-// Copyright 2013-2022 NTESS. Under the terms
+// Copyright 2013-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2013-2022, NTESS
+// Copyright (c) 2013-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -238,7 +238,7 @@ void MemNICFour::doRecv(SimpleNetwork::Request * req, NetType net) {
 }
 
 void MemNICFour::recvNotify(OrderedMemRtrEvent* mre) {
-    MemEventBase * me = static_cast<MemEventBase*>(mre->event);
+    MemEventBase * me = static_cast<MemEventBase*>(mre->takeEvent());
     delete mre;
 
     if (!me) return;

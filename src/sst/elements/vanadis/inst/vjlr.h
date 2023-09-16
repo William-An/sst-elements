@@ -1,8 +1,8 @@
-// Copyright 2009-2022 NTESS. Under the terms
+// Copyright 2009-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2022, NTESS
+// Copyright (c) 2009-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -67,6 +67,7 @@ public:
         const uint64_t link_value = calculateStandardNotTakenAddress();
 
         regFile->setIntReg<uint64_t>(phys_int_regs_out[0], link_value);
+        regFile->setIntReg<uint64_t>(phys_int_regs_in[0], jump_to);
 
 #ifdef VANADIS_BUILD_DEBUG
         output->verbose(CALL_INFO, 16, 0, "Execute JLR jump-to: 0x%0llx link-value: 0x%0llx\n", jump_to, link_value);

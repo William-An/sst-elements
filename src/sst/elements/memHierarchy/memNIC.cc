@@ -1,8 +1,8 @@
-// Copyright 2013-2022 NTESS. Under the terms
+// Copyright 2013-2023 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2013-2022, NTESS
+// Copyright (c) 2013-2023, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -83,7 +83,7 @@ bool MemNIC::clock(SimTime_t cycle) {
 bool MemNIC::recvNotify(int) {
     MemRtrEvent * mre = doRecv(link_control);
     if (mre) {
-        MemEventBase* ev = mre->event;
+        MemEventBase* ev = mre->takeEvent();
         delete mre;
         if (ev) {
             if (is_debug_event(ev)) {
@@ -136,7 +136,7 @@ void MemNIC::printStatus(Output &out) {
     // Since this is just debug/fatal we're just going to read out the queue & re-populate it
     std::queue<SST::Interfaces::SimpleNetwork::Request*> tmpQ;
     while (!sendQueue.empty()) {
-        MemEventBase * ev = static_cast<MemRtrEvent*>(sendQueue.front()->inspectPayload())->event;
+        MemEventBase * ev = static_cast<MemRtrEvent*>(sendQueue.front()->inspectPayload())->inspectEvent();
         out.output("      %s\n", ev->getVerboseString(out.getVerboseLevel()).c_str());
         tmpQ.push(sendQueue.front());
         sendQueue.pop();
@@ -151,7 +151,7 @@ void MemNIC::emergencyShutdownDebug(Output &out) {
     out.output(" Draining link control...\n");
     MemRtrEvent * mre = doRecv(link_control);
     while (mre != nullptr) {
-        MemEventBase * ev = mre->event;
+        MemEventBase * ev = mre->takeEvent();
         delete mre;
         if (ev) {
             out.output("      Undelivered message: %s\n", ev->getVerboseString(out.getVerboseLevel()).c_str());
