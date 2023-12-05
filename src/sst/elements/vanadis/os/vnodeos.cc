@@ -175,6 +175,8 @@ VanadisNodeOSComponent::VanadisNodeOSComponent(SST::ComponentId_t id, SST::Param
     delete[] port_name_buffer;
 
     m_deviceList[-1000] = new OS::Device( "/dev/rdmaNic", 0x80000000, 1048576 );
+    // Add balar to vanadis device list
+    m_deviceList[-2000] = new OS::Device( "/dev/balar", 0x80100000, 1024 );
 
 
     registerAsPrimaryComponent();
